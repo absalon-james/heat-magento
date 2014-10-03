@@ -247,7 +247,6 @@ resources:
             'roles:web':
               - match: grain
               - magento
-              - sync 
             'roles:db':
               - match: grain
               - magento 
