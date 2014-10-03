@@ -247,7 +247,7 @@ resources:
             'roles:web':
               - match: grain
               - magento
-	      - sync 
+              - sync 
             'roles:db':
               - match: grain
               - magento 
@@ -261,7 +261,7 @@ resources:
             network.ip_addrs: [eth0]
             network.interfaces: []
           mine_interval: 1
-	  magento_version: 1.9.0.1
+          magento_version: 1.9.0.1
           sync:
             group: magento
             includes:
@@ -285,7 +285,7 @@ resources:
                   user: magento-stack
                   password: $pw
                   host: "'%'"
-           params:
+            params:
               $pw:
                 get_attr:
                   - secret
