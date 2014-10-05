@@ -25,19 +25,26 @@ parameters:
     label: External Network UUID
     description: UUID of the external network. The private network created by this stack will route to this network. Also, any floating ip's needed by this stack will come this network.
 
-  coms-key-name:
-    type: string
-    default: coms
-    label: Stack Keyname
-    description: Unique name of the keypair for node to node communications within the stack.
-
   minion-count:
     type: number
     default: 2
     label: Number of web servers.
     description: The number of web application servers.
 
+  flavor:
+    type: string
+    label: Flavor
+    description: Flavor of all vms. This may be changed in the future to allow different flavors for the different vms in this stack.
+    default: m1.small
+
 resources:
+
+  # Random string to aid in naming things.
+  stack-string:
+    type: OS::Heat::RandomString
+    properties:
+      length: 6
+      sequence: lettersdigits
 
   # Will be used to generate a random password
   # 32 characters long consisting of alpha numeric characters
@@ -52,9 +59,15 @@ resources:
   coms:
     type: OS::Nova::KeyPair
     properties:
-      name:
-        get_param: coms-key-name
       save_private_key: true 
+      name:
+        str_replace:
+          template: magento-$stackstr-coms
+          params:
+            $stackstr:
+              get_attr:
+                - stack-string
+                - value 
 
   # Private network for this stack
   net:
@@ -213,8 +226,16 @@ resources:
         get_param: keyname
       image: 
         get_param: image
-      flavor: m1.small
-      name: magento-master
+      flavor:
+        get_param: flavor
+      name:
+        str_replace:
+          template: magento-$stackstr-master
+          params:
+            $stackstr:
+              get_attr:
+                - stack-string
+                - value
       personality:
 
         # Private key for ssh'ing into minions
@@ -247,7 +268,6 @@ resources:
             'roles:web':
               - match: grain
               - magento
-              - sync 
             'roles:db':
               - match: grain
               - magento 
@@ -260,6 +280,7 @@ resources:
           mine_functions:
             network.ip_addrs: [eth0]
             network.interfaces: []
+            grains.get: ['host']
           mine_interval: 1
           magento_version: 1.9.0.1
           sync:
@@ -321,7 +342,16 @@ resources:
       resource_def:
         type: Salt::Minion
         properties:
-          flavor: m1.small
+          flavor:
+            get_param: flavor
+          stack-prefix:
+            str_replace:
+              template: magento-$stackstr-web
+              params:
+                $stackstr:
+                  get_attr:
+                    - stack-string
+                    - value
           private_key:
             get_attr:
               - coms
@@ -361,9 +391,18 @@ resources:
     type: OS::Nova::Server
     depends_on: interface
     properties:
-      flavor: m1.small
+      flavor:
+        get_param: flavor
       image:
         get_param: image
+      name:
+        str_replace:
+          template: magento-$stackstr-haproxy
+          params:
+            $stackstr:
+              get_attr:
+                - stack-string
+                - value
       personality:
 
         # Private key for node to node communication
@@ -419,7 +458,16 @@ resources:
     properties:
       image:
         get_param: image
-      flavor: m1.small
+      flavor:
+        get_param: flavor
+      name:
+        str_replace:
+          template: magento-$str-db
+          params:
+            $str:
+              get_attr:
+                - stack-string
+                - value
       personality:
 
         # Private key for node to node communications
@@ -489,6 +537,7 @@ resources:
 
 outputs:
   master-ip:
+    description: The salt master. SSH here first to get into the other vms.
     value: 
       get_attr:
         - master-ip
@@ -506,13 +555,8 @@ outputs:
         - minion-haproxy-ip
         - floating_ip_address
 
-  minion-db-ip:
-    value:
-      get_attr:
-        - minion-db
-        - first_address
-
-  finish-magento-url:
+  magento-url:
+    description: How to reach your magento.
     value:
       str_replace:
         template: http://$haproxyip/
@@ -521,6 +565,25 @@ outputs:
             get_attr:
               - minion-haproxy-ip
               - floating_ip_address
+
+  magento-db-user:
+    description: The database username. (Needed to finish magento installation)
+    value: 'magento-stack'
+
+  magento-db-password:
+    description: The database password. (Needed to finish magento installation)
+    value:
+      get_attr:
+        - secret
+        - value
+
+  magento-db-host:
+    description: The database host ip. (Needed to finish magento installation)
+    value:
+      get_attr:
+        - minion-db
+        - first_address
+      
 
   # Uncomment the stdout's and stderr's if problems are occuring.
   #master-stdout:
