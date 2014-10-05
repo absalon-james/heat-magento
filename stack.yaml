@@ -31,6 +31,12 @@ parameters:
     label: Number of web servers.
     description: The number of web application servers.
 
+  flavor:
+    type: string
+    label: Flavor
+    description: Flavor of all vms. This may be changed in the future to allow different flavors for the different vms in this stack.
+    default: m1.small
+
 resources:
 
   # Random string to aid in naming things.
@@ -220,7 +226,8 @@ resources:
         get_param: keyname
       image: 
         get_param: image
-      flavor: m1.small
+      flavor:
+        get_param: flavor
       name:
         str_replace:
           template: magento-$stackstr-master
@@ -273,6 +280,7 @@ resources:
           mine_functions:
             network.ip_addrs: [eth0]
             network.interfaces: []
+            grains.get: ['host']
           mine_interval: 1
           magento_version: 1.9.0.1
           sync:
@@ -334,10 +342,11 @@ resources:
       resource_def:
         type: Salt::Minion
         properties:
-          flavor: m1.small
+          flavor:
+            get_param: flavor
           stack-prefix:
             str_replace:
-              template: magento-$stackstr
+              template: magento-$stackstr-web
               params:
                 $stackstr:
                   get_attr:
@@ -382,7 +391,8 @@ resources:
     type: OS::Nova::Server
     depends_on: interface
     properties:
-      flavor: m1.small
+      flavor:
+        get_param: flavor
       image:
         get_param: image
       name:
@@ -448,7 +458,8 @@ resources:
     properties:
       image:
         get_param: image
-      flavor: m1.small
+      flavor:
+        get_param: flavor
       name:
         str_replace:
           template: magento-$str-db
@@ -526,6 +537,7 @@ resources:
 
 outputs:
   master-ip:
+    description: The salt master. SSH here first to get into the other vms.
     value: 
       get_attr:
         - master-ip
@@ -542,12 +554,6 @@ outputs:
       get_attr:
         - minion-haproxy-ip
         - floating_ip_address
-
-  minion-db-ip:
-    value:
-      get_attr:
-        - minion-db
-        - first_address
 
   magento-url:
     description: How to reach your magento.
